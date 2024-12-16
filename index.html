@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dot Counter</title>
+  <script src="https://docs.opencv.org/master/opencv.js"></script>
+</head>
+<body>
+  <h1>Dot Detector</h1>
+  <video id="video" autoplay playsinline width="320" height="240"></video>
+  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+  <button id="capture">Capture Image</button>
+  <p id="result">Dots Counted: 0</p>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resultText = document.getElementById('result');
+    
+    // Access camera
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; });
+
+    document.getElementById('capture').addEventListener('click', () => {
+      // Draw the video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imgData = canvas.toDataURL('image/png');
+      processImage();
+    });
+
+    function processImage() {
+      const src = cv.imread(canvas); // Read the canvas as an OpenCV mat
+      const gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+      // Apply thresholding to detect dots
+      cv.threshold(gray, gray, 200, 255, cv.THRESH_BINARY_INV);
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      const dotCount = contours.size();
+      resultText.innerText = `Dots Counted: ${dotCount}`;
+
+      // Clean up
+      src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
+    }
+  </script>
+</body>
+</html>
