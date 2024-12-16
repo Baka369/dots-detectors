@@ -18,9 +18,19 @@
     const ctx = canvas.getContext('2d');
     const resultText = document.getElementById('result');
     
-    // Access camera
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => { video.srcObject = stream; });
+    // Access back camera
+    navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: { exact: "environment" } } // Force back camera
+    })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      console.error("Back camera not available, using default camera.", err);
+      // Fallback to the default camera if back camera is unavailable
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream);
+    });
 
     document.getElementById('capture').addEventListener('click', () => {
       // Draw the video frame to canvas
