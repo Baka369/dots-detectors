@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dot Counter in Image</title>
+  <title>Dot Counter</title>
   <script async src="https://docs.opencv.org/4.5.2/opencv.js"></script>
   <style>
     body {
@@ -14,9 +14,15 @@
       margin: 0;
       background-color: #f4f4f4;
     }
-    #canvas {
+    canvas, video {
       border: 1px solid black;
       margin-top: 10px;
+    }
+    button, input {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
     }
     #result {
       font-size: 20px;
@@ -26,42 +32,77 @@
 </head>
 <body>
   <h1>Dot Counter</h1>
-  <input type="file" id="imageUpload" accept="image/*">
-  <canvas id="canvas"></canvas>
+
+  <!-- Buttons and File Input -->
+  <input type="file" id="imageUpload" accept="image/*" style="display:none;">
+  <button id="uploadBtn">Upload Image</button>
+  <button id="cameraBtn">Click Picture</button>
+
+  <!-- Video and Canvas Elements -->
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+  <button id="captureBtn" style="display:none;">Capture</button>
   <p id="result">Dots Counted: 0</p>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const resultText = document.getElementById('result');
+    const uploadBtn = document.getElementById("uploadBtn");
+    const cameraBtn = document.getElementById("cameraBtn");
+    const imageUpload = document.getElementById("imageUpload");
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const captureBtn = document.getElementById("captureBtn");
+    const ctx = canvas.getContext("2d");
+    const resultText = document.getElementById("result");
 
-    document.getElementById('imageUpload').addEventListener('change', (e) => {
-      const file = e.target.files[0];
+    // Event: Upload Image
+    uploadBtn.addEventListener("click", () => imageUpload.click());
+
+    imageUpload.addEventListener("change", (event) => {
+      const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = function (event) {
+        reader.onload = (e) => {
           const img = new Image();
-          img.onload = function () {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+          img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             processImage();
           };
-          img.src = event.target.result;
+          img.src = e.target.result;
         };
         reader.readAsDataURL(file);
       }
     });
 
+    // Event: Open Camera
+    cameraBtn.addEventListener("click", () => {
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then((stream) => {
+          video.srcObject = stream;
+          video.style.display = "block";
+          captureBtn.style.display = "block";
+          canvas.style.display = "none";
+        })
+        .catch((err) => console.error("Camera access error:", err));
+    });
+
+    // Event: Capture Image from Camera
+    captureBtn.addEventListener("click", () => {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      processImage();
+      video.style.display = "none";
+      captureBtn.style.display = "none";
+      canvas.style.display = "block";
+    });
+
+    // Process Image and Count Dots
     function processImage() {
-      const src = cv.imread(canvas); // Read image from canvas
+      const src = cv.imread(canvas);
       const gray = new cv.Mat();
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      cv.threshold(gray, gray, 200, 255, cv.THRESH_BINARY_INV);
 
-      // Apply thresholding
-      cv.threshold(gray, gray, 127, 255, cv.THRESH_BINARY_INV);
-
-      // Find contours
       const contours = new cv.MatVector();
       const hierarchy = new cv.Mat();
       cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -69,8 +110,11 @@
       const dotCount = contours.size();
       resultText.innerText = `Dots Counted: ${dotCount}`;
 
-      // Cleanup memory
-      src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
+      // Clean up
+      src.delete();
+      gray.delete();
+      contours.delete();
+      hierarchy.delete();
     }
   </script>
 </body>
