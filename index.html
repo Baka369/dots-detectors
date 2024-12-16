@@ -2,85 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dot Counter</title>
-  <script src="https://docs.opencv.org/master/opencv.js"></script>
+  <title>Dot Counter in Image</title>
+  <script async src="https://docs.opencv.org/4.5.2/opencv.js"></script>
   <style>
     body {
-      margin: 0;
-      padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      background-color: #f0f0f0;
+      margin: 0;
+      background-color: #f4f4f4;
     }
-    video {
-      width: 80vw; /* Adjust width to 80% of viewport width */
-      height: 50vh; /* Adjust height to 50% of viewport height */
-      border: 2px solid black;
-      background-color: #000;
+    #canvas {
+      border: 1px solid black;
+      margin-top: 10px;
     }
     #result {
       font-size: 20px;
       margin-top: 10px;
     }
-    #capture {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    #capture:hover {
-      background-color: #45a049;
-    }
   </style>
 </head>
 <body>
-  <h1>Dot Detector</h1>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
-  <button id="capture">Capture Image</button>
+  <h1>Dot Counter</h1>
+  <input type="file" id="imageUpload" accept="image/*">
+  <canvas id="canvas"></canvas>
   <p id="result">Dots Counted: 0</p>
 
   <script>
-    const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const resultText = document.getElementById('result');
-    
-    // Access back camera
-    navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: { exact: "environment" } } // Force back camera
-    })
-    .then(stream => {
-      video.srcObject = stream;
-    })
-    .catch(err => {
-      console.error("Back camera not available, using default camera.", err);
-      // Fallback to the default camera if back camera is unavailable
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => video.srcObject = stream);
-    });
 
-    document.getElementById('capture').addEventListener('click', () => {
-      // Draw the video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imgData = canvas.toDataURL('image/png');
-      processImage();
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const img = new Image();
+          img.onload = function () {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            processImage();
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     });
 
     function processImage() {
-      const src = cv.imread(canvas); // Read the canvas as an OpenCV mat
+      const src = cv.imread(canvas); // Read image from canvas
       const gray = new cv.Mat();
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-      // Apply thresholding to detect dots
-      cv.threshold(gray, gray, 200, 255, cv.THRESH_BINARY_INV);
+      // Apply thresholding
+      cv.threshold(gray, gray, 127, 255, cv.THRESH_BINARY_INV);
+
+      // Find contours
       const contours = new cv.MatVector();
       const hierarchy = new cv.Mat();
       cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -88,7 +69,7 @@
       const dotCount = contours.size();
       resultText.innerText = `Dots Counted: ${dotCount}`;
 
-      // Clean up
+      // Cleanup memory
       src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
     }
   </script>
