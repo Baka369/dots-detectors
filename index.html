@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dot Counter</title>
-  <script src="https://docs.opencv.org/master/opencv.js"></script>
+  <title>Real-Time Dot Counter</title>
+  <script src="https://docs.opencv.org/master/opencv.js" defer></script>
 </head>
 <body>
-  <h1>Dot Detector</h1>
+  <h1>Real-Time Dot Detector</h1>
   <video id="video" autoplay playsinline width="320" height="240"></video>
   <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
-  <button id="capture">Capture Image</button>
   <p id="result">Dots Counted: 0</p>
 
   <script>
@@ -17,45 +16,65 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const resultText = document.getElementById('result');
-    
-    // Access back camera
-    navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: { exact: "environment" } } // Force back camera
+
+    // Access the back camera
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: "environment" } }
     })
     .then(stream => {
       video.srcObject = stream;
     })
     .catch(err => {
       console.error("Back camera not available, using default camera.", err);
-      // Fallback to the default camera if back camera is unavailable
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => video.srcObject = stream);
     });
 
-    document.getElementById('capture').addEventListener('click', () => {
-      // Draw the video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imgData = canvas.toDataURL('image/png');
-      processImage();
-    });
+    // Process video frames in real time
+    function processVideo() {
+      if (!video.srcObject) return;
 
-    function processImage() {
-      const src = cv.imread(canvas); // Read the canvas as an OpenCV mat
+      // Draw the current video frame onto the canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Convert canvas image to OpenCV mat
+      const src = cv.imread(canvas);
       const gray = new cv.Mat();
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-      // Apply thresholding to detect dots
-      cv.threshold(gray, gray, 200, 255, cv.THRESH_BINARY_INV);
+      // Adaptive thresholding to handle varying lighting conditions
+      const binary = new cv.Mat();
+      cv.adaptiveThreshold(
+        gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2
+      );
+
+      // Find contours (dots) and filter based on area
       const contours = new cv.MatVector();
       const hierarchy = new cv.Mat();
-      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-      const dotCount = contours.size();
+      let dotCount = 0;
+      for (let i = 0; i < contours.size(); ++i) {
+        const cnt = contours.get(i);
+        const area = cv.contourArea(cnt);
+        if (area > 10 && area < 500) { // Filter out noise and very large objects
+          dotCount++;
+        }
+        cnt.delete();
+      }
+
+      // Display the dot count
       resultText.innerText = `Dots Counted: ${dotCount}`;
 
       // Clean up
-      src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
+      src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+
+      // Schedule the next frame processing
+      requestAnimationFrame(processVideo);
     }
+
+    // Start processing when OpenCV is ready
+    document.addEventListener('opencvready', processVideo);
   </script>
 </body>
 </html>
