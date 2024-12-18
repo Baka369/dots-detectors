@@ -90,7 +90,7 @@
     // Event: Capture Image from Camera
     captureBtn.addEventListener("click", () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      processImage();
+      processImage(); // Process the captured image
       video.style.display = "none";
       captureBtn.style.display = "none";
       canvas.style.display = "block";
@@ -99,20 +99,38 @@
     // Process Image and Count Dots
     function processImage() {
       const src = cv.imread(canvas);
+
+      // Convert to Grayscale
       const gray = new cv.Mat();
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-      cv.threshold(gray, gray, 200, 255, cv.THRESH_BINARY_INV);
 
+      // Debug: Display Grayscale Image
+      cv.imshow(canvas, gray);
+
+      // Apply Gaussian Blur to Reduce Noise
+      cv.GaussianBlur(gray, gray, { width: 5, height: 5 }, 0);
+
+      // Apply Binary Threshold
+      const binary = new cv.Mat();
+      cv.threshold(gray, binary, 150, 255, cv.THRESH_BINARY_INV);
+
+      // Debug: Display Binary Image
+      cv.imshow(canvas, binary);
+
+      // Find Contours
       const contours = new cv.MatVector();
       const hierarchy = new cv.Mat();
-      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+      // Count and Display Dots
       const dotCount = contours.size();
+      console.log("Contours detected:", dotCount);
       resultText.innerText = `Dots Counted: ${dotCount}`;
 
       // Clean up
       src.delete();
       gray.delete();
+      binary.delete();
       contours.delete();
       hierarchy.delete();
     }
